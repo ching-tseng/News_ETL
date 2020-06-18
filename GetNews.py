@@ -13,50 +13,88 @@ headers = {
                   "Chrome/83.0.4103.97 Safari/537.36"
 }
 domain = "https://news.ltn.com.tw/"
-query = "search?keyword={keyword}&conditions={condition}&start_time={ST}&end_time={ET}"
+query = "search?keyword={keyword}&conditions={condition}&start_time={ST}&end_time={ET}&page={page}"
 
 
-def start_query(keyword: str, condition: str, start_time: datetime.date, end_time: datetime.date):
-    url = domain + query.format(keyword=keyword, condition=condition, ST=start_time, ET=end_time)
+def start_query(query_list: dict):
+    url = domain + query.format(keyword=query_list["keyword"],
+                                condition=query_list["condition"],
+                                ST=query_list["start_time"],
+                                ET=query_list["end_time"],
+                                page=query_list["page"])
     print(f"URL: {url}\n")
-    try:
-        web_session = requests.session()
-        res = web_session.get(url, headers=headers)
-
-        soup = bs4(res.text, "html.parser")
-        get_news_list(soup)
-    except Exception as e:
-        print("\n------ERROR----->")
-        print(f"Catch an Exception: {e}")
-        print("<------ERROR-----\n")
+    # try:
+    web_session = requests.session()
+    res = web_session.get(url, headers=headers)
+    soup = bs4(res.text, "html.parser")
+    get_news_list(soup, query_list)
+    # except Exception as e:
+    #     print("\n------ERROR----->")
+    #     print(f"Catch an Exception: {e}\nURL:{url}")
+    #     print("<------ERROR-----\n")
     pass
 
 
-def get_news_list(soup: bs4):
-    # print(f"{soup}")
-    news_list = soup.select("a[class='tit']")
+def get_news_list(soup: bs4, query_list: dict):
+    news_class = ['business', 'weeklybiz', 'politics']
+    news_list = soup.select("ul[class='searchlist boxTitle'] > li")
     for news in news_list:
-        print(f"News: {news.text}\nLink: {news.attrs['href']}\n\n")
-        print(f"{news.attrs['href'].split('/')[-3]}")
-        if news.attrs['href'].split("/")[-3] == 'business':
-            get_each_news(news.text, news.attrs['href'])
-            time.sleep(random.randint(3, 7))
+        pub_time = news.select("span")[0].text
+        article = news.select("a")[0]
+        print(f"News: {article.text}\n"
+              f"Link: {article.attrs['href']}\n"
+              f"Class: {article.attrs['href'].split('/')[-3]}")
+        if article.attrs['href'].split("/")[-3] in news_class:
+            news_id = article.attrs['href'].split("/")[-1]
+            if not isNewsExists(news_id, pub_time):
+                title = article.text
+                link = article.attrs['href']
+                get_each_news(news_id, pub_time, title, link)
+                time.sleep(random.randint(2, 5))
+
+    next_page_if_exists(soup, query_list)
     pass
 
 
-def get_each_news(news_title: str, news_link: str):
+def isNewsExists(news_id: int, pub_time: str):
+    year = pub_time.split("-")[0]
+    file_path = f"./News/{year}/{news_id}.txt"
     try:
-        web_ss = requests.session()
-        res = web_ss.get(news_link, headers=headers)
-        soup = bs4(res.text, "html.parser")
-        # print(f"{soup}")
-        get_each_news_content(news_title, soup)
+        return os.path.exists(file_path)
     except Exception as e:
-        print(f"Catch an Exception: \nTitle: {news_title}\nMSG: {e}\n\n")
+        print(f"Check News is Exists: {e}")
+        return False
+
+
+def next_page_if_exists(soup: bs4, query_list: dict):
+    p_next = soup.select("a[data-desc='下一頁']")
+    if len(p_next) > 0:
+        query_list["page"] = p_next[0].attrs["href"].split("=")[-1]
+        start_query(query_list)
+    else:
+        query_list["end_time"] = query_list["start_time"]
+        query_list["start_time"] = query_list["start_time"] - datetime.timedelta(days=30 * 3)
+        query_list["page"] = 1
+        if query_list["start_time"] < datetime.datetime(2019, 1, 1).date():
+            print(f"Search start time: {query_list['start_time']}")
+            print(f"\n-----Finished-----\n\n")
+            return
+        else:
+            start_query(query_list)
+
+
+def get_each_news(news_id: int, pub_time: str, title: str, link: str):
+    # try:
+    web_ss = requests.session()
+    res = web_ss.get(link, headers=headers)
+    soup = bs4(res.text, "html.parser")
+    get_each_news_content(news_id, pub_time, title, link, soup)
+    # except Exception as e:
+    #     print(f"Catch an Exception: \nID: {news_id}\nMSG: {e}\n\n")
     pass
 
 
-def get_each_news_content(title:str, soup: bs4):
+def get_each_news_content(news_id: int, pub_time: str, title: str, link: str, soup: bs4):
     all_content = ''
     content_list = soup.findAll("p", attrs={'class': None})
     for content in content_list:
@@ -67,33 +105,36 @@ def get_each_news_content(title:str, soup: bs4):
             continue
         else:
             all_content += content.text
-    print(f"{all_content}")
-    write_to_file(title, all_content)
+    # print(f"{all_content}")
+    write_to_file(news_id, pub_time, title, link, all_content)
     pass
 
 
-def write_to_file(title: str, content: str):
-    file_path = "./News/"
-    file_name = ''
+def write_to_file(news_id: int, pub_time: str, title: str, link: str, content: str):
+    current_year = pub_time.split("-")[0]
+    file_path = f"./News/{current_year}/"
+    file_name = f"{news_id}"
     try:
-        if not os.path.exists(file_path):
-            os.makedirs(file_path, exist_ok=True)
-            
-        file_name = sanitize_filename(title.replace(" ", ""))
+        os.makedirs(file_path, exist_ok=True)
+        file_name = sanitize_filename(file_name)
     except IOError as e:
         print(f"Write Into File Error:\nTitle: {title}\nMSG: {e}")
     finally:
-        print(f"\nWrite Into: {file_path+file_name+'.txt'}")
+        print(f"\nWrite Into: {file_path + file_name + '.txt'}\n")
         if len(file_name) > 0:
-            with open(file_path+file_name+".txt", "w+", encoding='utf-8') as f:
-                f.write(content)
+            with open(file_path + file_name + ".txt", "w+", encoding='utf-8') as f:
+                f.write(f"標題: {title}\n")
+                f.write(f"時間: {pub_time}\n")
+                # f.write(f"記者: {reporter}\n")
+                f.write(f"內文: {content}\n")
                 f.close()
-            print(f"\n-----Finished-----\n\n")
     pass
 
 
-now = datetime.datetime.now()
-start_query(keyword="台積電",
-            condition="and",
-            start_time=now.date() - datetime.timedelta(days=30 * 3),
-            end_time=now.date())
+# Last Disconnect2019-09-22 ~ 2019-12-21
+now = datetime.datetime(2019, 12, 21).date()
+start_time = time.time()
+query_list = {"keyword": "台積電", "condition": "and", "start_time": now - datetime.timedelta(days=30 * 3),
+              "end_time": now, "page": 1}
+start_query(query_list)
+
