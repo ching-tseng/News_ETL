@@ -1,11 +1,12 @@
 # libraries
-import os
-import time
-import random
 import datetime
+import os
+import random
+import time
+
 import requests
-from pathvalidate import sanitize_filename
 from bs4 import BeautifulSoup as bs4
+from pathvalidate import sanitize_filename
 
 headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -23,15 +24,15 @@ def start_query(query_list: dict):
                                 ET=query_list["end_time"],
                                 page=query_list["page"])
     print(f"URL: {url}\n")
-    # try:
-    web_session = requests.session()
-    res = web_session.get(url, headers=headers)
-    soup = bs4(res.text, "html.parser")
-    get_news_list(soup, query_list)
-    # except Exception as e:
-    #     print("\n------ERROR----->")
-    #     print(f"Catch an Exception: {e}\nURL:{url}")
-    #     print("<------ERROR-----\n")
+    try:
+        web_session = requests.session()
+        res = web_session.get(url, headers=headers)
+        soup = bs4(res.text, "html.parser")
+        get_news_list(soup, query_list)
+    except Exception as e:
+        print("\n------ERROR----->")
+        print(f"Catch an Exception: {e}\nURL:{url}")
+        print("<------ERROR-----\n")
     pass
 
 
@@ -75,7 +76,7 @@ def next_page_if_exists(soup: bs4, query_list: dict):
         query_list["end_time"] = query_list["start_time"]
         query_list["start_time"] = query_list["start_time"] - datetime.timedelta(days=30 * 3)
         query_list["page"] = 1
-        if query_list["start_time"] < datetime.datetime(2019, 1, 1).date():
+        if query_list["start_time"] < datetime.datetime(2018, 1, 1).date():
             print(f"Search start time: {query_list['start_time']}")
             print(f"\n-----Finished-----\n\n")
             return
@@ -84,13 +85,13 @@ def next_page_if_exists(soup: bs4, query_list: dict):
 
 
 def get_each_news(news_id: int, pub_time: str, title: str, link: str):
-    # try:
-    web_ss = requests.session()
-    res = web_ss.get(link, headers=headers)
-    soup = bs4(res.text, "html.parser")
-    get_each_news_content(news_id, pub_time, title, link, soup)
-    # except Exception as e:
-    #     print(f"Catch an Exception: \nID: {news_id}\nMSG: {e}\n\n")
+    try:
+        web_ss = requests.session()
+        res = web_ss.get(link, headers=headers)
+        soup = bs4(res.text, "html.parser")
+        get_each_news_content(news_id, pub_time, title, link, soup)
+    except Exception as e:
+        print(f"Catch an Exception: \nID: {news_id}\nMSG: {e}\n\n")
     pass
 
 
@@ -132,9 +133,10 @@ def write_to_file(news_id: int, pub_time: str, title: str, link: str, content: s
 
 
 # Last Disconnect2019-09-22 ~ 2019-12-21
-now = datetime.datetime(2019, 12, 21).date()
+# Stop at 2019-03-26 ~ 2019-06-24
+# Stop at 2018-03-31 ~ 2018-06-29
+now = datetime.datetime(2019, 3, 26).date()
 start_time = time.time()
 query_list = {"keyword": "台積電", "condition": "and", "start_time": now - datetime.timedelta(days=30 * 3),
               "end_time": now, "page": 1}
 start_query(query_list)
-
