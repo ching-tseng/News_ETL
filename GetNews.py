@@ -51,7 +51,7 @@ def get_news_list(soup: bs4, query_list: dict):
                 title = article.text
                 link = article.attrs['href']
                 get_each_news(news_id, pub_time, title, link)
-                time.sleep(random.randint(2, 5))
+                # time.sleep(random.randint(2, 5))
 
     next_page_if_exists(soup, query_list)
     pass
@@ -76,7 +76,7 @@ def next_page_if_exists(soup: bs4, query_list: dict):
         query_list["end_time"] = query_list["start_time"]
         query_list["start_time"] = query_list["start_time"] - datetime.timedelta(days=30 * 3)
         query_list["page"] = 1
-        if query_list["start_time"] < datetime.datetime(2018, 1, 1).date():
+        if query_list["start_time"] < datetime.datetime(2016, 1, 1).date():
             print(f"Search start time: {query_list['start_time']}")
             print(f"\n-----Finished-----\n\n")
             return
@@ -124,6 +124,7 @@ def write_to_file(news_id: int, pub_time: str, title: str, link: str, content: s
         print(f"\nWrite Into: {file_path + file_name + '.txt'}\n")
         if len(file_name) > 0:
             with open(file_path + file_name + ".txt", "w+", encoding='utf-8') as f:
+                f.write(f"")
                 f.write(f"標題: {title}\n")
                 f.write(f"時間: {pub_time}\n")
                 # f.write(f"記者: {reporter}\n")
@@ -135,7 +136,8 @@ def write_to_file(news_id: int, pub_time: str, title: str, link: str, content: s
 # Last Disconnect2019-09-22 ~ 2019-12-21
 # Stop at 2019-03-26 ~ 2019-06-24
 # Stop at 2018-03-31 ~ 2018-06-29
-now = datetime.datetime(2019, 3, 26).date()
+# Stop at 2017-01-05 ~ 2017-04-05
+now = datetime.datetime(2017, 4, 5).date()
 start_time = time.time()
 query_list = {"keyword": "台積電", "condition": "and", "start_time": now - datetime.timedelta(days=30 * 3),
               "end_time": now, "page": 1}
